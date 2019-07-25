@@ -1400,13 +1400,6 @@ public final class CassandraStorage implements IStorage, IDistributedStorage {
     }
   }
 
-  @Override
-  public void forceReleaseLead(UUID leaderId) {
-    session.execute(forceReleaseLeadPrepStmt.bind(leaderId));
-
-    LOG.debug("Force released lead on segment {}", leaderId);
-  }
-
   private boolean hasLeadOnSegment(UUID leaderId) {
     ResultSet lwtResult = session.execute(
         renewLeadPrepStmt.bind(
