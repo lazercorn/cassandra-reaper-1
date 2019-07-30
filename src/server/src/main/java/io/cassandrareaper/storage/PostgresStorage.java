@@ -17,7 +17,6 @@
 
 package io.cassandrareaper.storage;
 
-import io.cassandrareaper.ReaperException;
 import io.cassandrareaper.core.Cluster;
 import io.cassandrareaper.core.RepairRun;
 import io.cassandrareaper.core.RepairSchedule;
@@ -87,16 +86,17 @@ public final class PostgresStorage implements IStorage {
   }
 
   @Override
-  public Optional<Cluster> getCluster(String clusterName) {
+  public Cluster getCluster(String clusterName) {
     Cluster result;
     try (Handle h = jdbi.open()) {
       result = getPostgresStorage(h).getCluster(clusterName);
     }
-    return Optional.ofNullable(result);
+    return result;
   }
 
   @Override
-  public Optional<Cluster> deleteCluster(String clusterName) {
+  public Cluster deleteCluster(String clusterName) {
+
     assert getRepairSchedulesForCluster(clusterName).isEmpty()
         : StringUtils.join(getRepairSchedulesForCluster(clusterName));
 
@@ -115,7 +115,7 @@ public final class PostgresStorage implements IStorage {
         }
       }
     }
-    return Optional.ofNullable(result);
+    return result;
   }
 
   @Override
@@ -139,7 +139,7 @@ public final class PostgresStorage implements IStorage {
   }
 
   @Override
-  public boolean addCluster(Cluster newCluster) throws ReaperException {
+  public boolean addCluster(Cluster newCluster) {
     Cluster result = null;
     try (Handle h = jdbi.open()) {
       String properties = new ObjectMapper().writeValueAsString(newCluster.getProperties());
@@ -158,7 +158,7 @@ public final class PostgresStorage implements IStorage {
         result = newCluster; // no created id, as cluster name used for primary key
       }
     } catch (JsonProcessingException e) {
-      throw new ReaperException(e);
+      throw new IllegalStateException(e);
     }
     return result != null;
   }
