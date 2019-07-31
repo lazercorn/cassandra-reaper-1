@@ -19,6 +19,7 @@ package io.cassandrareaper;
 
 import io.cassandrareaper.ReaperApplicationConfiguration.DatacenterAvailability;
 import io.cassandrareaper.ReaperApplicationConfiguration.JmxCredentials;
+import io.cassandrareaper.core.Cluster;
 import io.cassandrareaper.core.Node;
 import io.cassandrareaper.jmx.ClusterFacade;
 import io.cassandrareaper.jmx.JmxConnectionFactory;
@@ -45,6 +46,7 @@ import io.cassandrareaper.storage.PostgresStorage;
 
 import java.util.EnumSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -254,7 +256,7 @@ public final class ReaperApplication extends Application<ReaperApplicationConfig
     }
 
     initializeJmxSeedsForAllClusters();
-    maybeInitializeSidecarMode();
+    maybeInitializeSidecarMode(addClusterResource);
     LOG.info("resuming pending repair runs");
 
     Preconditions.checkState(
@@ -314,10 +316,11 @@ public final class ReaperApplication extends Application<ReaperApplicationConfig
 
   /**
    * If Reaper is in sidecar mode, grab the local host id and the associated broadcast address
+   * @param addClusterResource
    *
    * @throws ReaperException any caught runtime exception
    */
-  private void maybeInitializeSidecarMode() throws ReaperException {
+  private void maybeInitializeSidecarMode(ClusterResource addClusterResource) throws ReaperException {
     if (context.config.isInSidecarMode()) {
       ClusterFacade clusterFacade = ClusterFacade.create(context);
       Node host
@@ -332,11 +335,20 @@ public final class ReaperApplication extends Application<ReaperApplicationConfig
                 .getEnforcedLocalNode()
                 .orElse(clusterFacade.getLocalEndpoint(host));
         LOG.info("Sidecar mode. Local node is : {}", context.localNodeAddress);
+        selfRegisterClusterForSidecar(addClusterResource);
       } catch (RuntimeException | InterruptedException | ReaperException e) {
         LOG.error("Failed connecting to the local node in sidecar mode {}", host, e);
         throw new ReaperException(e);
       }
     }
+  }
+
+  private void selfRegisterClusterForSidecar(ClusterResource addClusterResource) {
+    addClusterResource.addOrUpdateCluster(
+        Optional.empty(),
+        Optional.empty(),
+        Optional.of("127.0.0.1"),
+        Optional.of(Cluster.DEFAULT_JMX_PORT));
   }
 
   private void scheduleRepairManager(ScheduledExecutorService scheduler) {

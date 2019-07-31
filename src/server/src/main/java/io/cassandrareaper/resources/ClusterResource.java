@@ -28,6 +28,7 @@ import io.cassandrareaper.resources.view.NodesStatus;
 import io.cassandrareaper.service.ClusterRepairScheduler;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -166,7 +167,7 @@ public final class ClusterResource {
       @QueryParam("jmxPort") Optional<Integer> jmxPort) {
 
     LOG.info("POST addOrUpdateCluster called with seedHost: {}", seedHost.orElse(null));
-    return addOrUpdateCluster(uriInfo, Optional.empty(), seedHost, jmxPort);
+    return addOrUpdateCluster(Optional.of(uriInfo), Optional.empty(), seedHost, jmxPort);
   }
 
   @PUT
@@ -181,11 +182,11 @@ public final class ClusterResource {
         "PUT addOrUpdateCluster called with: cluster_name = {}, seedHost = {}",
         clusterName, seedHost.orElse(null));
 
-    return addOrUpdateCluster(uriInfo, Optional.of(clusterName), seedHost, jmxPort);
+    return addOrUpdateCluster(Optional.of(uriInfo), Optional.of(clusterName), seedHost, jmxPort);
   }
 
-  private Response addOrUpdateCluster(
-      UriInfo uriInfo,
+  public Response addOrUpdateCluster(
+      Optional<UriInfo> uriInfo,
       Optional<String> clusterName,
       Optional<String> seedHost,
       Optional<Integer> jmxPort) {
@@ -216,7 +217,10 @@ public final class ClusterResource {
         return Response.status(Response.Status.BAD_REQUEST).entity(msg).build();
       }
       Optional<Cluster> existingCluster = context.storage.getCluster(cluster.getName());
-      URI location = uriInfo.getBaseUriBuilder().path("cluster").path(cluster.getName()).build();
+      URI location = new URI("http","localhost","/cluster/addCluster");
+      if (uriInfo.isPresent()) {
+        location = uriInfo.get().getBaseUriBuilder().path("cluster").path(cluster.getName()).build();
+      }
       if (existingCluster.isPresent()) {
         LOG.debug("Attempting updating nodelist for cluster {}", existingCluster.get().getName());
 
@@ -250,7 +254,7 @@ public final class ClusterResource {
       }
       return Response.created(location).build();
 
-    } catch (ReaperException e) {
+    } catch (ReaperException | URISyntaxException e) {
       String msg = String.format("update cluster failed, %s with seed host %s", clusterName.orElse(""), seedHost.get());
       LOG.error(msg, e);
       return Response.serverError().entity(msg).build();
